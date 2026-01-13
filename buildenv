@@ -1,0 +1,75 @@
+export ZOPEN_BUILD_LINE="STABLE"
+export ZOPEN_STABLE_URL="https://github.com/grafana/k6.git"
+export ZOPEN_STABLE_TAG="v1.5.0"
+export ZOPEN_STABLE_DEPS="check_go git"
+export ZOPEN_CATEGORIES="development"
+export ZOPEN_COMP=GO
+export ZOPEN_NAME="k6"
+
+export ZOPEN_CONFIGURE="zopen_configure"
+export ZOPEN_CONFIGURE_MINIMAL=1
+export ZOPEN_MAKE="go"
+export ZOPEN_MAKE_OPTS="build"
+export ZOPEN_MAKE_MINIMAL=1
+export ZOPEN_INSTALL="zopen_install"
+export ZOPEN_CHECK="zopen_check"
+export ZOPEN_CLEAN="zopen_clean"
+
+zopen_init()
+{
+  export GOBIN=$ZOPEN_INSTALL_DIR/bin
+  mkdir -p $ZOPEN_INSTALL_DIR/bin
+  unset CC CXX
+  export CGO_ENABLED=0
+  export GOOS=zos
+  export GOARCH=s390x
+  export GOTOOLCHAIN=local
+}
+
+zopen_configure()
+{
+  echo "Tagging source files with UTF-8 encoding..."
+  find . -name "*.go" -exec chtag -tc 1208 {} \;
+  find . -name "go.mod" -exec chtag -tc 1208 {} \;
+  find . -name "go.sum" -exec chtag -tc 1208 {} \;
+}
+
+zopen_install()
+{
+  go install
+}
+
+zopen_check()
+{
+  echo "Running k6 verification..."
+  "$ZOPEN_INSTALL_DIR/bin/k6" version
+}
+
+zopen_check_results()
+{
+  dir="$1"
+  pfx="$2"
+  chk="$1/$2_check.log"
+
+  if grep -q "k6 v" "$chk" 2>/dev/null; then
+    echo "actualFailures:0"
+    echo "totalTests:1"
+    echo "expectedFailures:0"
+    echo "expectedTotalTests:1"
+  else
+    echo "actualFailures:1"
+    echo "totalTests:1"
+    echo "expectedFailures:0"
+    echo "expectedTotalTests:1"
+  fi
+}
+
+zopen_get_version()
+{
+  echo "1.5.0"
+}
+
+zopen_clean()
+{
+  rm -f k6
+}

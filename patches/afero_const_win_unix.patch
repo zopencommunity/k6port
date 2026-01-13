@@ -1,0 +1,10 @@
+--- a/vendor/github.com/spf13/afero/const_win_unix.go
++++ b/vendor/github.com/spf13/afero/const_win_unix.go
+@@ -14,6 +14,7 @@
+ // +build !freebsd
+ // +build !dragonfly
+ // +build !netbsd
++// +build !zos
+ 
+ package afero
+ 
