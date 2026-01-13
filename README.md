@@ -2,6 +2,8 @@
 
 [Grafana k6](https://k6.io/) is a modern load testing tool built for testing APIs, microservices, and websites.
 
+Ported by Adam Munawar Rahman, IBM.
+
 ## Installation
 
 ```bash
@@ -45,7 +47,7 @@ chtag -tc 1208 test.js
 ## Build from Source
 
 ```bash
-git clone https://github.com/msradam/k6port.git
+git clone https://github.com/zopencommunity/k6port.git
 cd k6port
 zopen build
 ```

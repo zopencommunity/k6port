@@ -1,0 +1,11 @@
+--- a/vendor/github.com/spf13/afero/const_bsds.go
++++ b/vendor/github.com/spf13/afero/const_bsds.go
+@@ -11,7 +11,7 @@
+ // See the License for the specific language governing permissions and
+ // limitations under the License.
+ 
+-// +build darwin openbsd freebsd netbsd dragonfly
++// +build darwin openbsd freebsd netbsd dragonfly zos
+ 
+ package afero
+ 
