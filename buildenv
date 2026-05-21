@@ -1,6 +1,6 @@
 export ZOPEN_BUILD_LINE="STABLE"
 export ZOPEN_STABLE_URL="https://github.com/grafana/k6.git"
-export ZOPEN_STABLE_TAG="v1.5.0"
+export ZOPEN_STABLE_TAG="v2.0.0"
 export ZOPEN_STABLE_DEPS="check_go git"
 export ZOPEN_CATEGORIES="development"
 export ZOPEN_COMP=GO
@@ -24,6 +24,8 @@ zopen_init()
   export GOOS=zos
   export GOARCH=s390x
   export GOTOOLCHAIN=local
+  # Add /usr/lib to LIBPATH for iewbndd6.so dependency
+  export LIBPATH=/usr/lib:$LIBPATH
 }
 
 zopen_configure()
@@ -66,7 +68,7 @@ zopen_check_results()
 
 zopen_get_version()
 {
-  echo "1.5.0"
+  echo "2.0.0"
 }
 
 zopen_clean()
