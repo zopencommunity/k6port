@@ -1,6 +1,6 @@
 export ZOPEN_BUILD_LINE="STABLE"
 export ZOPEN_STABLE_URL="https://github.com/grafana/k6.git"
-export ZOPEN_STABLE_TAG="v1.5.0"
+export ZOPEN_STABLE_TAG="v2.0.0"
 export ZOPEN_STABLE_DEPS="check_go git"
 export ZOPEN_CATEGORIES="development"
 export ZOPEN_COMP=GO
@@ -8,8 +8,7 @@ export ZOPEN_NAME="k6"
 
 export ZOPEN_CONFIGURE="zopen_configure"
 export ZOPEN_CONFIGURE_MINIMAL=1
-export ZOPEN_MAKE="go"
-export ZOPEN_MAKE_OPTS="build"
+export ZOPEN_MAKE="zopen_make"
 export ZOPEN_MAKE_MINIMAL=1
 export ZOPEN_INSTALL="zopen_install"
 export ZOPEN_CHECK="zopen_check"
@@ -24,25 +23,77 @@ zopen_init()
   export GOOS=zos
   export GOARCH=s390x
   export GOTOOLCHAIN=local
+  # Required for iewbndd6.so (Go 1.26+ z/OS linker helper in /usr/lib)
+  export LIBPATH=/usr/lib:$LIBPATH
+  # Use zopen CA bundle for TLS when fetching Go modules
+  export SSL_CERT_FILE=/global/zopen/etc/pki/tls/certs/cacert.pem
+  export GOPATH=/tmp/k6gopath
+  export GOCACHE=/tmp/k6gocache
 }
 
 zopen_configure()
 {
-  echo "Tagging source files with UTF-8 encoding..."
   find . -name "*.go" -exec chtag -tc 1208 {} \;
   find . -name "go.mod" -exec chtag -tc 1208 {} \;
   find . -name "go.sum" -exec chtag -tc 1208 {} \;
+
+  # Replace main.go to bundle k6 x subcommands via blank imports.
+  # k6 2.0's auto-provisioner fetches subcommands at runtime via k6foundry,
+  # but k6foundry does not include zos/s390x in its supported platform list
+  # (upstream fix: https://github.com/grafana/k6foundry/pull/112). Bundling
+  # them at compile time bypasses the auto-provisioner entirely.
+  cat > main.go << 'MAINEOF'
+package main
+
+import (
+	"go.k6.io/k6/v2/cmd"
+
+	_ "github.com/grafana/mcp-k6"
+	_ "github.com/grafana/xk6-docs"
+	_ "github.com/grafana/xk6-subcommand-agent"
+	_ "github.com/grafana/xk6-subcommand-explore"
+)
+
+func main() { cmd.Execute() }
+MAINEOF
+  chtag -tc 1208 main.go
+
+  # Fetch x subcommand dependencies and vendor
+  GOFLAGS="-mod=mod" go get github.com/grafana/mcp-k6@v0.6.1
+  GOFLAGS="-mod=mod" go get github.com/grafana/xk6-docs@v0.0.9
+  GOFLAGS="-mod=mod" go get github.com/grafana/xk6-subcommand-agent@v0.1.2
+  GOFLAGS="-mod=mod" go get github.com/grafana/xk6-subcommand-explore@v1.2.0
+  go mod tidy
+  go mod vendor
+
+  # Patch vendored afero for z/OS syscall build flag compatibility.
+  # const_bsds.go uses BSD syscall constants; z/OS shares this code path.
+  # const_win_unix.go must exclude zos to avoid a conflicting definition.
+  # See patches/afero_const_bsds.patch and patches/afero_const_win_unix.patch.
+  sed 's|dragonfly$|dragonfly zos|' \
+    vendor/github.com/spf13/afero/const_bsds.go > /tmp/afero_bsds.go
+  cp /tmp/afero_bsds.go vendor/github.com/spf13/afero/const_bsds.go
+
+  awk '/\/\/ \+build !netbsd/{print; print "// +build !zos"; next}1' \
+    vendor/github.com/spf13/afero/const_win_unix.go > /tmp/afero_win_unix.go
+  cp /tmp/afero_win_unix.go vendor/github.com/spf13/afero/const_win_unix.go
+}
+
+zopen_make()
+{
+  go build -mod=vendor -o k6 .
 }
 
 zopen_install()
 {
-  go install
+  cp k6 $ZOPEN_INSTALL_DIR/bin/k6
 }
 
 zopen_check()
 {
   echo "Running k6 verification..."
   "$ZOPEN_INSTALL_DIR/bin/k6" version
+  "$ZOPEN_INSTALL_DIR/bin/k6" x --help
 }
 
 zopen_check_results()
@@ -66,7 +117,7 @@ zopen_check_results()
 
 zopen_get_version()
 {
-  echo "1.5.0"
+  echo "2.0.0"
 }
 
 zopen_clean()
